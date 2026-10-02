@@ -1,5 +1,9 @@
 # Sticker Room 🧸
 
+[![Deploy to GitHub Pages](https://github.com/shaikowannasleep/sticker-room/actions/workflows/deploy.yml/badge.svg)](https://github.com/shaikowannasleep/sticker-room/actions/workflows/deploy.yml)
+
+> 🎮 **Live Demo**: [https://shaikowannasleep.github.io/sticker-room/](https://shaikowannasleep.github.io/sticker-room/)
+
 A cute 3D "unbox & decorate" sticker puzzle for web and mobile, built with **Three.js** and **Jolt Physics** (WASM).
 
 Inspired by the unpacking/decorating genre (e.g. *Fantasy Room*): tap the box, stickers pop out with real
