@@ -63,30 +63,39 @@ function extruded(shape, depth, bevel) {
     bevelEnabled: true,
     bevelThickness: bevel,
     bevelSize: bevel,
-    bevelSegments: 3,
-    curveSegments: 10,
+    bevelSegments: DETAIL === 0 ? 2 : 3,
+    curveSegments: [6, 8, 10][DETAIL],
   });
   g.translate(0, 0, -depth / 2);
   return g;
 }
 
+// 0 = low (weak phones), 1 = mid, 2 = high. Set once before anything is built.
+let DETAIL = 2;
+export function setDetail(d) {
+  DETAIL = d;
+}
+const segs = (n, min = 3) => Math.max(min, Math.round(n * [0.6, 0.78, 1][DETAIL]));
+
 function partGeo(d) {
   let g;
   switch (d.t) {
-    case 's':
-      g = new THREE.SphereGeometry(d.r, d.seg || 16, d.seg ? d.seg * 0.75 : 12);
+    case 's': {
+      const w = segs(d.seg || 16, 6);
+      g = new THREE.SphereGeometry(d.r, w, Math.max(4, Math.round(w * 0.75)));
       break;
+    }
     case 'b':
-      g = new RoundedBoxGeometry(d.w, d.h, d.d, 2, d.rad ?? Math.min(d.w, d.h, d.d) * 0.28);
+      g = new RoundedBoxGeometry(d.w, d.h, d.d, DETAIL === 0 ? 1 : 2, d.rad ?? Math.min(d.w, d.h, d.d) * 0.28);
       break;
     case 'c':
-      g = new THREE.CylinderGeometry(d.rt, d.rb ?? d.rt, d.h, d.seg || 20, 1);
+      g = new THREE.CylinderGeometry(d.rt, d.rb ?? d.rt, d.h, segs(d.seg || 20, 6), 1);
       break;
     case 'k':
-      g = new THREE.ConeGeometry(d.r, d.h, 14, 1);
+      g = new THREE.ConeGeometry(d.r, d.h, d.seg ? d.seg : segs(14, 6), 1);
       break;
     case 't':
-      g = new THREE.TorusGeometry(d.R, d.r, 8, d.seg || 20, d.arc ?? Math.PI * 2);
+      g = new THREE.TorusGeometry(d.R, d.r, segs(8, 5), segs(d.seg || 20, 8), d.arc ?? Math.PI * 2);
       break;
     case 'star':
       g = extruded(starShape(d.R), d.depth ?? 0.18, d.bevel ?? 0.09);
@@ -101,6 +110,7 @@ function partGeo(d) {
       throw new Error('unknown part ' + d.t);
   }
   if (g.index) g = g.toNonIndexed();
+  g.deleteAttribute('uv'); // nothing samples textures on stickers/furniture -> lets seams weld
   tmpE.set(d.rot ? d.rot[0] : 0, d.rot ? d.rot[1] : 0, d.rot ? d.rot[2] : 0, 'YXZ');
   tmpQ.setFromEuler(tmpE);
   tmpP.set(...(d.p || [0, 0, 0]));
@@ -119,16 +129,20 @@ function partGeo(d) {
   return g;
 }
 
+// Merge parts and weld duplicate vertices -> indexed mesh (~5x fewer vertices to shade on the GPU).
 export function mergeParts(parts) {
   const geos = parts.map(partGeo);
   const merged = mergeGeometries(geos, false);
   geos.forEach((g) => g.dispose());
-  return merged;
+  const welded = mergeVertices(merged, 1e-4);
+  merged.dispose();
+  return welded;
 }
 
 export function buildOutlineGeo(geo) {
   let og = new THREE.BufferGeometry();
   og.setAttribute('position', geo.attributes.position.clone());
+  if (geo.index) og.setIndex(geo.index.clone());
   og = mergeVertices(og, 1e-3);
   og.computeVertexNormals();
   return og;
@@ -176,6 +190,14 @@ function leaf(a, tilt, len, w, x0, y0, z0, c) {
     seg: 12,
   };
 }
+
+const shift = (parts, dx = 0, dy = 0, dz = 0) => parts.map((q) => ({ ...q, p: [(q.p?.[0] || 0) + dx, (q.p?.[1] || 0) + dy, (q.p?.[2] || 0) + dz] }));
+const front = (x, y, z, ry, d) => [x + Math.sin(ry) * d, y, z + Math.cos(ry) * d];
+const rodBetween = (a, b, r, c) => {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  return { t: 'c', rt: r, rb: r, h: Math.hypot(dx, dy), p: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, a[2] ?? 0], rot: [0, 0, Math.atan2(-dx, dy)], c, seg: 6 };
+};
 
 const POT = '#f0a083';
 const POT2 = '#e88c6e';
@@ -630,6 +652,441 @@ export const ITEM_DEFS = {
       return P;
     },
   },
+  // ======================= expansion pack =======================
+  tv: {
+    name: 'Retro TV',
+    parts: () => [
+      { t: 'b', w: 1.4, h: 1.05, d: 0.9, rad: 0.22, p: [0, 0.68, 0], c: '#ffb3c7' },
+      { t: 'b', w: 1.0, h: 0.75, d: 0.1, rad: 0.12, p: [-0.12, 0.7, 0.43], c: '#bfe6ff' },
+      { t: 's', r: 0.06, p: [0.5, 0.85, 0.45], c: '#ffe27a' },
+      { t: 's', r: 0.06, p: [0.5, 0.62, 0.45], c: '#8fe3b5' },
+      { t: 'c', rt: 0.025, rb: 0.025, h: 0.6, p: [-0.2, 1.42, 0], rot: [0, 0, 0.5], c: '#7a5a8a', seg: 6 },
+      { t: 'c', rt: 0.025, rb: 0.025, h: 0.6, p: [0.2, 1.42, 0], rot: [0, 0, -0.5], c: '#7a5a8a', seg: 6 },
+      { t: 's', r: 0.06, p: [-0.34, 1.68, 0], c: '#ff8fb5' },
+      { t: 's', r: 0.06, p: [0.34, 1.68, 0], c: '#ff8fb5' },
+      { t: 'c', rt: 0.06, rb: 0.08, h: 0.16, p: [-0.45, 0.08, 0], c: '#d98fa6' },
+      { t: 'c', rt: 0.06, rb: 0.08, h: 0.16, p: [0.45, 0.08, 0], c: '#d98fa6' },
+      ...shift(face(flat(0.49), 0.74, 0.17, 0.06), -0.12),
+    ],
+  },
+  sunflower: {
+    name: 'Sunflower',
+    round: true,
+    parts: () => {
+      const P = [...pot(0.5, 0.4)];
+      P.push({ t: 'c', rt: 0.04, rb: 0.05, h: 1.0, p: [0, 1.0, 0], c: '#5fc68a', seg: 8 });
+      P.push(leaf(1.4, 0.3, 0.5, 0.3, 0, 0.9, 0, '#6fcf97'), leaf(-1.6, 0.4, 0.45, 0.28, 0, 1.1, 0, '#7fd6a0'));
+      const cy = 1.62;
+      const cz = 0.06;
+      for (let i = 0; i < 12; i++) {
+        const a = (i * Math.PI) / 6;
+        P.push({ t: 's', r: 0.13, p: [Math.cos(a) * 0.33, cy + Math.sin(a) * 0.33, cz], sc: [1.6, 0.75, 0.35], rot: [0, 0, a], c: i % 2 ? '#ffd84f' : '#ffe27a', seg: 10 });
+      }
+      P.push({ t: 'c', rt: 0.26, rb: 0.26, h: 0.12, p: [0, cy, cz + 0.02], rot: [Math.PI / 2, 0, 0], c: '#a8673f' });
+      P.push(...face(flat(cz + 0.09), cy + 0.02, 0.1, 0.045));
+      return P;
+    },
+  },
+  tulips: {
+    name: 'Tulips',
+    round: true,
+    parts: () => {
+      const P = [
+        { t: 'c', rt: 0.34, rb: 0.28, h: 0.55, p: [0, 0.275, 0], c: '#fff3df' },
+        { t: 'c', rt: 0.36, rb: 0.36, h: 0.1, p: [0, 0.55, 0], c: '#ffd0e4' },
+      ];
+      [[-0.2, 1.25, 0, '#ff7a8a'], [0.2, 1.35, 0.05, '#ffb3cf'], [0.0, 1.52, -0.1, '#ffe08a']].forEach(([x, y, z, c]) => {
+        P.push({ t: 'c', rt: 0.025, rb: 0.025, h: y - 0.55, p: [x * 0.5, (y + 0.55) / 2, z * 0.5], rot: [0, 0, -x * 0.3], c: '#5fc68a', seg: 6 });
+        P.push({ t: 's', r: 0.15, p: [x, y, z], sc: [1, 1.3, 1], c, seg: 12 });
+        P.push({ t: 'k', r: 0.09, h: 0.14, p: [x - 0.06, y + 0.2, z], c, seg: 8 });
+        P.push({ t: 'k', r: 0.09, h: 0.14, p: [x + 0.06, y + 0.2, z], c, seg: 8 });
+      });
+      P.push(leaf(0.6, 0.9, 0.6, 0.25, 0, 0.55, 0, '#7fd6a0'), leaf(-2.4, 0.9, 0.55, 0.25, 0, 0.55, 0, '#6fcf97'));
+      P.push(...face(ell(0.32, 50, 0.32), 0.3, 0.12, 0.045));
+      return P;
+    },
+  },
+  watering: {
+    name: 'Watering Can',
+    parts: () => [
+      { t: 'c', rt: 0.4, rb: 0.45, h: 0.7, p: [0, 0.35, 0], c: '#8fe3c4' },
+      { t: 'c', rt: 0.36, rb: 0.4, h: 0.06, p: [0, 0.72, 0], c: '#a8f0d6' },
+      { t: 't', R: 0.3, r: 0.05, arc: Math.PI, p: [0, 0.75, 0], rot: [0, Math.PI / 2, 0], c: '#6fd6ad' },
+      { t: 'c', rt: 0.05, rb: 0.08, h: 0.7, p: [0.55, 0.65, 0], rot: [0, 0, -1.0], c: '#8fe3c4' },
+      { t: 'c', rt: 0.11, rb: 0.06, h: 0.1, p: [0.85, 0.88, 0], rot: [0, 0, -1.0], c: '#6fd6ad' },
+      ...face(ell(0.42, 50, 0.42), 0.38, 0.14, 0.05),
+    ],
+  },
+  soap: {
+    name: 'Soap',
+    parts: () => [
+      { t: 'b', w: 0.95, h: 0.42, d: 0.65, rad: 0.18, p: [0, 0.21, 0], c: '#ffc2dd' },
+      { t: 's', r: 0.14, p: [-0.25, 0.55, -0.05], c: '#e8f6ff' },
+      { t: 's', r: 0.1, p: [0.05, 0.6, 0.1], c: '#ffffff' },
+      { t: 's', r: 0.17, p: [0.25, 0.62, -0.1], c: '#dff1ff' },
+      { t: 's', r: 0.07, p: [0.0, 0.85, -0.05], c: '#ffffff' },
+      ...face(flat(0.33), 0.22, 0.15, 0.045),
+    ],
+  },
+  towels: {
+    name: 'Towels',
+    parts: () => {
+      const roll = (x, y, c, c2) => [
+        { t: 'c', rt: 0.22, rb: 0.22, h: 0.8, p: [x, y, 0], rot: [Math.PI / 2, 0, 0], c },
+        { t: 'c', rt: 0.12, rb: 0.12, h: 0.82, p: [x, y, 0], rot: [Math.PI / 2, 0, 0], c: c2 },
+      ];
+      return [
+        ...roll(-0.23, 0.22, '#a8d8ff', '#cfe9ff'),
+        ...roll(0.23, 0.22, '#ffc2dd', '#ffe0ee'),
+        ...roll(0, 0.6, '#b6f0c8', '#dcf8e5'),
+        ...face(flat(0.42), 0.62, 0.09, 0.035, { mouth: false }),
+      ];
+    },
+  },
+  toothcup: {
+    name: 'Toothbrush Cup',
+    round: true,
+    parts: () => [
+      { t: 'c', rt: 0.3, rb: 0.26, h: 0.6, p: [0, 0.3, 0], c: '#9fd8ff' },
+      { t: 'c', rt: 0.025, rb: 0.025, h: 0.8, p: [-0.08, 0.85, 0], rot: [0, 0, 0.25], c: '#ff8fb5', seg: 6 },
+      { t: 'b', w: 0.09, h: 0.2, d: 0.09, rad: 0.03, p: [-0.19, 1.22, 0.03], rot: [0, 0, 0.25], c: '#ffffff' },
+      { t: 'c', rt: 0.025, rb: 0.025, h: 0.8, p: [0.1, 0.85, 0], rot: [0, 0, -0.2], c: '#ffd35e', seg: 6 },
+      { t: 'b', w: 0.09, h: 0.2, d: 0.09, rad: 0.03, p: [0.18, 1.22, 0.03], rot: [0, 0, -0.2], c: '#ffffff' },
+      ...face(ell(0.29, 50, 0.29), 0.3, 0.11, 0.045),
+    ],
+  },
+  blocks: {
+    name: 'Toy Blocks',
+    parts: () => {
+      const B = [[-0.34, 0.31, 0, 0.2, '#ff8fa8'], [0.34, 0.31, 0.05, -0.15, '#8fd3ff'], [0, 0.93, 0, 0.45, '#ffe27a']];
+      const P = [];
+      B.forEach(([x, y, z, ry, c], i) => {
+        P.push({ t: 'b', w: 0.62, h: 0.62, d: 0.62, rad: 0.08, p: [x, y, z], rot: [0, ry, 0], c });
+        P.push({ t: i === 2 ? 'heart' : 'star', R: 0.15, k: 0.36, depth: 0.03, bevel: 0.02, p: front(x, y, z, ry, 0.32), rot: [0, ry, 0], c: '#ffffff' });
+      });
+      return P;
+    },
+  },
+  ball: {
+    name: 'Beach Ball',
+    round: true,
+    parts: () => [
+      { t: 's', r: 0.5, p: [0, 0.5, 0], seg: 20, c: '#ffffff' },
+      { t: 't', R: 0.5, r: 0.1, p: [0, 0.5, 0], seg: 28, c: '#ff7a8a' },
+      { t: 't', R: 0.5, r: 0.1, p: [0, 0.5, 0], rot: [0, Math.PI / 3, 0], seg: 28, c: '#ffe27a' },
+      { t: 't', R: 0.5, r: 0.1, p: [0, 0.5, 0], rot: [0, -Math.PI / 3, 0], seg: 28, c: '#8fd3ff' },
+      { t: 's', r: 0.1, p: [0, 1.0, 0], sc: [1, 0.4, 1], c: '#ff7a8a' },
+      ...face(ell(0.5, 0.5, 0.5, 0, 0.5, 0), 0.48, 0.17, 0.055),
+    ],
+  },
+  rocket: {
+    name: 'Toy Rocket',
+    round: true,
+    parts: () => [
+      { t: 'c', rt: 0.3, rb: 0.34, h: 1.0, p: [0, 0.75, 0], c: '#f3f0ff' },
+      { t: 'k', r: 0.31, h: 0.45, p: [0, 1.47, 0], c: '#ff7a8a' },
+      { t: 'c', rt: 0.34, rb: 0.26, h: 0.2, p: [0, 0.15, 0], c: '#b79cff' },
+      ...[Math.PI / 3, Math.PI, (5 * Math.PI) / 3].map((a) => ({ t: 'b', w: 0.08, h: 0.45, d: 0.32, rad: 0.03, p: [Math.sin(a) * 0.36, 0.35, Math.cos(a) * 0.36], rot: [0, a, 0], c: '#ff7a8a' })),
+      { t: 'c', rt: 0.14, rb: 0.14, h: 0.06, p: [0, 1.0, 0.31], rot: [Math.PI / 2, 0, 0], c: '#8fd3ff' },
+      { t: 't', R: 0.15, r: 0.035, p: [0, 1.0, 0.33], c: '#b79cff' },
+      ...face(ell(0.32, 50, 0.32), 0.62, 0.12, 0.045),
+    ],
+  },
+  dino: {
+    name: 'Dino',
+    parts: () => {
+      const g = '#8fe3a0';
+      const d = '#6fcf87';
+      return [
+        { t: 's', r: 0.5, p: [0, 0.55, -0.05], sc: [1, 0.95, 1.1], c: g },
+        { t: 's', r: 0.32, p: [0, 0.55, 0.25], sc: [1, 1.1, 0.5], c: '#e8ffd9' },
+        { t: 's', r: 0.38, p: [0, 1.25, 0.15], sc: [1, 0.95, 1.05], c: g },
+        { t: 's', r: 0.26, p: [0, 1.12, 0.42], sc: [1.1, 0.8, 0.8], c: g },
+        { t: 'k', r: 0.22, h: 0.75, p: [0, 0.4, -0.75], rot: [-1.75, 0, 0], c: g },
+        { t: 'k', r: 0.1, h: 0.2, p: [0, 1.63, 0.08], c: '#ffb3cf' },
+        { t: 'k', r: 0.1, h: 0.2, p: [0, 1.48, -0.22], rot: [-0.6, 0, 0], c: '#ffb3cf' },
+        { t: 'k', r: 0.1, h: 0.2, p: [0, 1.0, -0.52], rot: [-1.0, 0, 0], c: '#ffb3cf' },
+        { t: 'k', r: 0.1, h: 0.2, p: [0, 0.62, -0.6], rot: [-1.4, 0, 0], c: '#ffb3cf' },
+        { t: 's', r: 0.17, p: [-0.28, 0.13, 0.2], sc: [1, 0.8, 1.3], c: d },
+        { t: 's', r: 0.17, p: [0.28, 0.13, 0.2], sc: [1, 0.8, 1.3], c: d },
+        { t: 's', r: 0.1, p: [-0.38, 0.75, 0.3], sc: [1, 1.4, 1], c: d },
+        { t: 's', r: 0.1, p: [0.38, 0.75, 0.3], sc: [1, 1.4, 1], c: d },
+        ...face(ell(0.38, 0.36, 0.4, 0, 1.25, 0.15), 1.33, 0.14, 0.05, { mouth: false }),
+        { t: 't', R: 0.08, r: 0.016, arc: Math.PI, p: [0, 1.09, 0.63], rot: [0, 0, Math.PI], c: '#2b2540', seg: 10 },
+      ];
+    },
+  },
+  robot: {
+    name: 'Robot',
+    parts: () => [
+      { t: 'b', w: 0.8, h: 0.7, d: 0.6, rad: 0.12, p: [0, 0.55, 0], c: '#cfd8f5' },
+      { t: 'b', w: 0.5, h: 0.25, d: 0.04, rad: 0.04, p: [0, 0.6, 0.31], c: '#9fd8ff' },
+      { t: 's', r: 0.05, p: [-0.12, 0.6, 0.34], c: '#ff8fa8' },
+      { t: 's', r: 0.05, p: [0.12, 0.6, 0.34], c: '#ffe27a' },
+      { t: 'b', w: 0.75, h: 0.6, d: 0.6, rad: 0.18, p: [0, 1.22, 0], c: '#e4e9ff' },
+      { t: 'b', w: 0.58, h: 0.38, d: 0.05, rad: 0.1, p: [0, 1.22, 0.3], c: '#4b4a73' },
+      { t: 's', r: 0.06, p: [-0.13, 1.26, 0.33], sc: [1, 1.3, 0.5], c: '#8fffd0' },
+      { t: 's', r: 0.06, p: [0.13, 1.26, 0.33], sc: [1, 1.3, 0.5], c: '#8fffd0' },
+      { t: 't', R: 0.06, r: 0.014, arc: Math.PI, p: [0, 1.14, 0.33], rot: [0, 0, Math.PI], c: '#8fffd0', seg: 10 },
+      { t: 'c', rt: 0.02, rb: 0.02, h: 0.25, p: [0, 1.63, 0], c: '#9a9ab8', seg: 6 },
+      { t: 's', r: 0.07, p: [0, 1.78, 0], c: '#ff8fa8' },
+      { t: 'b', w: 0.16, h: 0.45, d: 0.16, rad: 0.07, p: [-0.52, 0.55, 0], rot: [0, 0, -0.2], c: '#b9c3ea' },
+      { t: 'b', w: 0.16, h: 0.45, d: 0.16, rad: 0.07, p: [0.52, 0.55, 0], rot: [0, 0, 0.2], c: '#b9c3ea' },
+      { t: 'b', w: 0.22, h: 0.25, d: 0.3, rad: 0.08, p: [-0.2, 0.12, 0], c: '#9fa9d6' },
+      { t: 'b', w: 0.22, h: 0.25, d: 0.3, rad: 0.08, p: [0.2, 0.12, 0], c: '#9fa9d6' },
+      { t: 'c', rt: 0.08, rb: 0.08, h: 0.08, p: [-0.41, 1.22, 0], rot: [0, 0, Math.PI / 2], c: '#ffb3cf' },
+      { t: 'c', rt: 0.08, rb: 0.08, h: 0.08, p: [0.41, 1.22, 0], rot: [0, 0, Math.PI / 2], c: '#ffb3cf' },
+    ],
+  },
+  croissant: {
+    name: 'Croissant',
+    parts: () => {
+      const P = [];
+      const rs = [0.17, 0.23, 0.27, 0.23, 0.17];
+      for (let i = 0; i < 5; i++) {
+        const a = Math.PI * (0.15 + i * 0.175);
+        P.push({ t: 's', r: rs[i], p: [Math.cos(a) * 0.48, rs[i] * 0.9, -Math.sin(a) * 0.48 + 0.2], sc: [1.1, 0.85, 1], rot: [0, -a, 0], c: i % 2 ? '#e9a55c' : '#f2b96e' });
+      }
+      P.push(...face(ell(0.3, 0.23, 0.27, 0, 0.243, -0.28), 0.27, 0.1, 0.04));
+      return P;
+    },
+  },
+  bread: {
+    name: 'Bread Loaf',
+    parts: () => [
+      { t: 'b', w: 1.1, h: 0.42, d: 0.62, rad: 0.16, p: [0, 0.21, 0], c: '#f0b56d' },
+      { t: 's', r: 0.55, p: [0, 0.42, 0], sc: [1, 0.5, 0.58], c: '#e9a55c' },
+      ...[-0.3, 0, 0.3].map((x) => ({ t: 'b', w: 0.06, h: 0.04, d: 0.42, rad: 0.02, p: [x, 0.685, 0], rot: [0, 0.5, 0], c: '#c9844a' })),
+      ...face(flat(0.32), 0.22, 0.17, 0.05),
+    ],
+  },
+  cake: {
+    name: 'Layer Cake',
+    round: true,
+    parts: () => [
+      { t: 'c', rt: 0.62, rb: 0.62, h: 0.08, p: [0, 0.04, 0], c: '#ffffff' },
+      { t: 'c', rt: 0.5, rb: 0.5, h: 0.35, p: [0, 0.255, 0], c: '#ffd0e4' },
+      { t: 'c', rt: 0.51, rb: 0.51, h: 0.07, p: [0, 0.45, 0], c: '#fff6e8' },
+      { t: 'c', rt: 0.5, rb: 0.5, h: 0.3, p: [0, 0.63, 0], c: '#ffd0e4' },
+      { t: 't', R: 0.46, r: 0.06, p: [0, 0.78, 0], rot: [Math.PI / 2, 0, 0], c: '#fff6e8', seg: 24 },
+      { t: 's', r: 0.1, p: [0, 0.86, 0], c: '#ff5c7a' },
+      { t: 'c', rt: 0.03, rb: 0.03, h: 0.22, p: [-0.24, 0.89, 0.05], c: '#8fd3ff', seg: 6 },
+      { t: 'c', rt: 0.03, rb: 0.03, h: 0.22, p: [0.24, 0.89, 0.05], c: '#b6f0c8', seg: 6 },
+      { t: 's', r: 0.04, p: [-0.24, 1.03, 0.05], sc: [1, 1.5, 1], c: '#ffd35e', seg: 8 },
+      { t: 's', r: 0.04, p: [0.24, 1.03, 0.05], sc: [1, 1.5, 1], c: '#ffd35e', seg: 8 },
+      ...face(ell(0.5, 50, 0.5), 0.27, 0.14, 0.045),
+    ],
+  },
+  macarons: {
+    name: 'Macarons',
+    round: true,
+    parts: () => {
+      const P = [];
+      ['#ffb3cf', '#b6f0c8', '#d9c7ff'].forEach((c, i) => {
+        const y = i * 0.3;
+        const x = [0, 0.06, -0.04][i];
+        P.push({ t: 's', r: 0.38, p: [x, y + 0.08, 0], sc: [1, 0.32, 1], c });
+        P.push({ t: 'c', rt: 0.33, rb: 0.33, h: 0.08, p: [x, y + 0.15, 0], c: '#fff6e8' });
+        P.push({ t: 's', r: 0.38, p: [x, y + 0.22, 0], sc: [1, 0.32, 1], c });
+      });
+      P.push(...shift(face(flat(0.37), 0.52, 0.12, 0.04, { blush: false }), 0.06));
+      return P;
+    },
+  },
+  ukulele: {
+    name: 'Ukulele',
+    wall: true,
+    parts: () => [
+      { t: 's', r: 0.42, p: [0, -0.35, 0], sc: [1, 1, 0.3], c: '#f3b979' },
+      { t: 's', r: 0.32, p: [0, 0.15, 0], sc: [1, 1, 0.3], c: '#f3b979' },
+      { t: 'c', rt: 0.13, rb: 0.13, h: 0.04, p: [0, -0.12, 0.11], rot: [Math.PI / 2, 0, 0], c: '#5a3a2a' },
+      { t: 'b', w: 0.14, h: 0.85, d: 0.08, rad: 0.03, p: [0, 0.75, 0.05], c: '#a0673f' },
+      { t: 'b', w: 0.22, h: 0.25, d: 0.1, rad: 0.05, p: [0, 1.25, 0.03], c: '#8a5434' },
+      { t: 'b', w: 0.28, h: 0.06, d: 0.06, rad: 0.02, p: [0, -0.55, 0.12], c: '#8a5434' },
+      { t: 'heart', k: 0.22, depth: 0.03, bevel: 0.02, p: [0.22, -0.5, 0.12], c: '#ff8fb5' },
+    ],
+  },
+  headphones: {
+    name: 'Headphones',
+    parts: () => [
+      { t: 't', R: 0.42, r: 0.06, arc: Math.PI, p: [0, 0.38, 0], c: '#ff9fbd' },
+      { t: 'c', rt: 0.21, rb: 0.21, h: 0.2, p: [-0.44, 0.24, 0], rot: [0, 0, Math.PI / 2], c: '#fff0f6' },
+      { t: 'c', rt: 0.21, rb: 0.21, h: 0.2, p: [0.44, 0.24, 0], rot: [0, 0, Math.PI / 2], c: '#fff0f6' },
+      { t: 'c', rt: 0.15, rb: 0.15, h: 0.22, p: [-0.44, 0.24, 0], rot: [0, 0, Math.PI / 2], c: '#ff9fbd' },
+      { t: 'c', rt: 0.15, rb: 0.15, h: 0.22, p: [0.44, 0.24, 0], rot: [0, 0, Math.PI / 2], c: '#ff9fbd' },
+      { t: 'k', r: 0.1, h: 0.18, p: [-0.22, 0.8, 0], rot: [0, 0, 0.4], c: '#ff9fbd' },
+      { t: 'k', r: 0.1, h: 0.18, p: [0.22, 0.8, 0], rot: [0, 0, -0.4], c: '#ff9fbd' },
+    ],
+  },
+  snowman: {
+    name: 'Snowman',
+    round: true,
+    parts: () => [
+      { t: 's', r: 0.48, p: [0, 0.45, 0], c: '#ffffff' },
+      { t: 's', r: 0.36, p: [0, 1.12, 0], c: '#ffffff' },
+      { t: 't', R: 0.3, r: 0.08, p: [0, 0.86, 0], rot: [Math.PI / 2, 0, 0], c: '#ff7a8a' },
+      { t: 'b', w: 0.14, h: 0.4, d: 0.06, rad: 0.03, p: [0.2, 0.65, 0.33], rot: [0.3, 0, 0.2], c: '#ff7a8a' },
+      { t: 'k', r: 0.06, h: 0.3, p: [0, 1.08, 0.45], rot: [Math.PI / 2, 0, 0], c: '#ffa04d', seg: 8 },
+      { t: 'c', rt: 0.22, rb: 0.22, h: 0.32, p: [0, 1.6, 0], c: '#5b5a86' },
+      { t: 'c', rt: 0.34, rb: 0.34, h: 0.05, p: [0, 1.45, 0], c: '#5b5a86' },
+      { t: 'c', rt: 0.225, rb: 0.225, h: 0.07, p: [0, 1.52, 0], c: '#ff8fb5' },
+      { t: 's', r: 0.05, p: [0, 0.55, 0.47], c: '#5b5a86', seg: 8 },
+      { t: 's', r: 0.05, p: [0, 0.35, 0.46], c: '#5b5a86', seg: 8 },
+      { t: 'c', rt: 0.025, rb: 0.025, h: 0.5, p: [0.6, 0.75, 0], rot: [0, 0, -1.0], c: '#8a5434', seg: 6 },
+      { t: 'c', rt: 0.025, rb: 0.025, h: 0.5, p: [-0.6, 0.75, 0], rot: [0, 0, 1.0], c: '#8a5434', seg: 6 },
+      ...face(ell(0.36, 0.36, 0.36, 0, 1.12, 0), 1.2, 0.13, 0.05, { mouth: false }),
+    ],
+  },
+  xtree: {
+    name: 'Holiday Tree',
+    round: true,
+    parts: () => {
+      const P = [
+        { t: 'c', rt: 0.3, rb: 0.25, h: 0.3, p: [0, 0.15, 0], c: '#ff8fa8' },
+        { t: 'c', rt: 0.08, rb: 0.08, h: 0.25, p: [0, 0.4, 0], c: '#8a5434' },
+        { t: 'k', r: 0.62, h: 0.7, p: [0, 0.8, 0], c: '#5fc68a' },
+        { t: 'k', r: 0.5, h: 0.6, p: [0, 1.2, 0], c: '#6fcf97' },
+        { t: 'k', r: 0.36, h: 0.5, p: [0, 1.58, 0], c: '#7fd6a0' },
+        { t: 'star', R: 0.16, depth: 0.06, bevel: 0.04, p: [0, 1.92, 0], c: '#ffe27a' },
+      ];
+      const orn = [[0.6, -0.7, '#ff7a8a'], [0.6, 0.9, '#8fd3ff'], [0.62, 2.3, '#ffe27a'], [1.0, 0.1, '#ffb3cf'], [1.05, 1.9, '#d9c7ff'], [1.4, -0.4, '#ff7a8a']];
+      orn.forEach(([y, a, c]) => {
+        const base = y < 0.95 ? [0.45, 0.62, 0.7] : y < 1.35 ? [0.9, 0.5, 0.6] : [1.33, 0.36, 0.5];
+        const r = base[1] * (1 - (y - base[0]) / base[2]) + 0.03;
+        P.push({ t: 's', r: 0.06, p: [Math.sin(a) * r, y, Math.cos(a) * r], c, seg: 8 });
+      });
+      P.push(...face(flat(0.3), 1.1, 0.1, 0.04));
+      return P;
+    },
+  },
+  stocking: {
+    name: 'Stocking',
+    wall: true,
+    parts: () => [
+      { t: 'b', w: 0.45, h: 0.75, d: 0.18, rad: 0.12, p: [0, 0, 0], c: '#ff6b81' },
+      { t: 's', r: 0.3, p: [0.15, -0.42, 0], sc: [1.2, 0.8, 0.32], c: '#ff6b81' },
+      { t: 's', r: 0.14, p: [0.36, -0.45, 0.02], sc: [1, 1, 0.45], c: '#ffffff' },
+      { t: 'b', w: 0.56, h: 0.22, d: 0.22, rad: 0.1, p: [0, 0.42, 0], c: '#ffffff' },
+      { t: 'star', R: 0.12, depth: 0.04, bevel: 0.03, p: [0, 0.02, 0.1], c: '#ffe27a' },
+    ],
+  },
+  cocoa: {
+    name: 'Hot Cocoa',
+    round: true,
+    parts: () => [
+      { t: 'c', rt: 0.4, rb: 0.36, h: 0.62, p: [0, 0.31, 0], c: '#a8d8ff' },
+      { t: 'c', rt: 0.36, rb: 0.36, h: 0.02, p: [0, 0.62, 0], c: '#8a5a3c' },
+      { t: 's', r: 0.3, p: [0, 0.66, 0], sc: [1, 0.4, 1], c: '#fffaf3' },
+      { t: 'b', w: 0.12, h: 0.12, d: 0.12, rad: 0.04, p: [-0.12, 0.8, 0.05], rot: [0.3, 0.4, 0], c: '#ffd0e4' },
+      { t: 'b', w: 0.12, h: 0.12, d: 0.12, rad: 0.04, p: [0.1, 0.82, -0.05], rot: [0.1, 0.9, 0.3], c: '#ffffff' },
+      { t: 't', R: 0.18, r: 0.055, p: [0.44, 0.33, 0], c: '#a8d8ff', seg: 16 },
+      ...face(ell(0.4, 50, 0.4), 0.32, 0.14, 0.05),
+    ],
+  },
+  globe: {
+    name: 'Globe',
+    round: true,
+    parts: () => [
+      { t: 'c', rt: 0.25, rb: 0.32, h: 0.12, p: [0, 0.06, 0], c: '#e8b98a' },
+      { t: 'c', rt: 0.04, rb: 0.04, h: 0.3, p: [0, 0.25, 0], c: '#e8b98a', seg: 6 },
+      { t: 't', R: 0.5, r: 0.03, arc: Math.PI * 1.25, p: [0, 0.85, 0], rot: [0, Math.PI / 2, -1.2], c: '#d9a273' },
+      { t: 's', r: 0.42, p: [0, 0.85, 0], seg: 20, c: '#8fd3ff' },
+      ...[[0.5, 0.3, 0.8], [-0.6, 0.5, 0.5], [0.2, -0.5, 0.8], [-0.3, -0.2, -0.9], [0.8, 0.2, -0.4]].map(([x, y, z]) => {
+        const l = Math.hypot(x, y, z);
+        return { t: 's', r: 0.15, p: [(x / l) * 0.34, 0.85 + (y / l) * 0.34, (z / l) * 0.34], c: '#8fe3a0', seg: 10 };
+      }),
+      ...face(ell(0.42, 0.42, 0.42, 0, 0.85, 0), 0.9, 0.14, 0.05),
+    ],
+  },
+  radio: {
+    name: 'Radio',
+    parts: () => [
+      { t: 'b', w: 1.1, h: 0.7, d: 0.42, rad: 0.15, p: [0, 0.35, 0], c: '#a8e6cf' },
+      { t: 'c', rt: 0.22, rb: 0.22, h: 0.06, p: [-0.25, 0.36, 0.21], rot: [Math.PI / 2, 0, 0], c: '#fff3df' },
+      { t: 'b', w: 0.32, h: 0.14, d: 0.05, rad: 0.03, p: [0.25, 0.47, 0.21], c: '#fffaf0' },
+      { t: 's', r: 0.06, p: [0.17, 0.23, 0.22], c: '#ff8fa8', seg: 8 },
+      { t: 's', r: 0.06, p: [0.35, 0.23, 0.22], c: '#ffe27a', seg: 8 },
+      { t: 't', R: 0.32, r: 0.04, arc: Math.PI, p: [0, 0.68, 0], c: '#7fd6b0' },
+      { t: 'c', rt: 0.015, rb: 0.015, h: 0.6, p: [0.45, 0.95, -0.1], rot: [0, 0, -0.4], c: '#9a9ab8', seg: 6 },
+      ...shift(face(flat(0.25), 0.38, 0.08, 0.035), -0.25),
+    ],
+  },
+  mirror: {
+    name: 'Mirror',
+    wall: true,
+    parts: () => [
+      { t: 'c', rt: 0.62, rb: 0.62, h: 0.1, p: [0, 0, 0], rot: [Math.PI / 2, 0, 0], c: '#bfe6ff', seg: 28 },
+      { t: 't', R: 0.62, r: 0.07, p: [0, 0, 0.03], seg: 28, c: '#ffb3cf' },
+      { t: 'b', w: 0.5, h: 0.06, d: 0.02, rad: 0.02, p: [-0.15, 0.2, 0.06], rot: [0, 0, 0.8], c: '#eaf7ff' },
+      { t: 'b', w: 0.25, h: 0.06, d: 0.02, rad: 0.02, p: [0.05, 0.3, 0.06], rot: [0, 0, 0.8], c: '#eaf7ff' },
+      { t: 's', r: 0.1, p: [-0.12, 0.68, 0.05], sc: [1.3, 0.8, 0.6], rot: [0, 0, 0.5], c: '#ff8fb5' },
+      { t: 's', r: 0.1, p: [0.12, 0.68, 0.05], sc: [1.3, 0.8, 0.6], rot: [0, 0, -0.5], c: '#ff8fb5' },
+      { t: 's', r: 0.06, p: [0, 0.66, 0.08], c: '#ff6f9c' },
+    ],
+  },
+  garland: {
+    name: 'Bunting',
+    wall: true,
+    parts: () => {
+      const P = [];
+      const cols = ['#ff8fb5', '#ffe27a', '#8fd3ff', '#b6f0c8', '#d9c7ff'];
+      const pts = [];
+      for (let i = 0; i <= 6; i++) {
+        const x = -1.35 + i * 0.45;
+        pts.push([x, 0.14 * x * x - 0.1, 0]);
+      }
+      for (let i = 0; i < 6; i++) P.push(rodBetween(pts[i], pts[i + 1], 0.018, '#c98c52'));
+      for (let i = 1; i < 6; i++) {
+        const [x, y] = pts[i];
+        P.push({ t: 'k', r: 0.2, h: 0.38, seg: 3, p: [x, y - 0.21, 0], rot: [Math.PI, 0, 0], sc: [1, 1, 0.3], c: cols[i - 1] });
+        P.push({ t: 's', r: 0.035, p: [x, y, 0.03], c: '#ffffff', seg: 6 });
+      }
+      return P;
+    },
+  },
+  basket: {
+    name: 'Flower Basket',
+    round: true,
+    parts: () => [
+      { t: 'c', rt: 0.48, rb: 0.38, h: 0.45, p: [0, 0.225, 0], c: '#e0a96d' },
+      { t: 't', R: 0.44, r: 0.035, p: [0, 0.14, 0], rot: [Math.PI / 2, 0, 0], c: '#c98c52' },
+      { t: 't', R: 0.47, r: 0.035, p: [0, 0.32, 0], rot: [Math.PI / 2, 0, 0], c: '#c98c52' },
+      { t: 't', R: 0.42, r: 0.04, arc: Math.PI, p: [0, 0.45, 0], c: '#c98c52' },
+      ...[[-0.22, 0.55, 0.1, '#ff8fb5'], [0.18, 0.56, 0.15, '#ffe27a'], [0, 0.6, -0.15, '#d9c7ff'], [0.25, 0.52, -0.2, '#ffffff'], [-0.2, 0.5, -0.2, '#ff9f7a']].map(([x, y, z, c]) => ({ t: 's', r: 0.14, p: [x, y, z], c, seg: 10 })),
+      ...face(ell(0.44, 50, 0.44), 0.22, 0.13, 0.045),
+    ],
+  },
+  jar: {
+    name: 'Candy Jar',
+    round: true,
+    parts: () => [
+      { t: 'c', rt: 0.36, rb: 0.38, h: 0.65, p: [0, 0.33, 0], c: '#d6f0ff' },
+      { t: 'c', rt: 0.3, rb: 0.3, h: 0.1, p: [0, 0.7, 0], c: '#ffb3cf' },
+      { t: 's', r: 0.08, p: [0, 0.8, 0], c: '#ff8fb5' },
+      ...[[-0.18, 0.15, '#ff8fb5'], [0.15, 0.2, '#ffe27a'], [0.0, 0.5, '#b6f0c8'], [-0.2, 0.52, '#d9c7ff'], [0.22, 0.48, '#ff9f7a']].map(([x, y, c]) => ({ t: 's', r: 0.08, p: [x, y, 0.33], sc: [1, 1, 0.5], c, seg: 8 })),
+      { t: 'b', w: 0.36, h: 0.2, d: 0.04, rad: 0.05, p: [0, 0.33, 0.36], c: '#ffffff' },
+      { t: 'heart', k: 0.16, depth: 0.03, bevel: 0.02, p: [0, 0.34, 0.39], c: '#ff8fb5' },
+    ],
+  },
+  ginger: {
+    name: 'Gingerbread',
+    parts: () => {
+      const c = '#d08a4f';
+      return [
+        { t: 's', r: 0.26, p: [0, 1.0, 0], sc: [1, 1, 0.45], c },
+        { t: 'b', w: 0.5, h: 0.5, d: 0.22, rad: 0.1, p: [0, 0.55, 0], c },
+        { t: 'b', w: 0.18, h: 0.42, d: 0.2, rad: 0.08, p: [-0.38, 0.68, 0], rot: [0, 0, 1.0], c },
+        { t: 'b', w: 0.18, h: 0.42, d: 0.2, rad: 0.08, p: [0.38, 0.68, 0], rot: [0, 0, -1.0], c },
+        { t: 'b', w: 0.2, h: 0.4, d: 0.2, rad: 0.09, p: [-0.15, 0.2, 0], rot: [0, 0, 0.15], c },
+        { t: 'b', w: 0.2, h: 0.4, d: 0.2, rad: 0.09, p: [0.15, 0.2, 0], rot: [0, 0, -0.15], c },
+        { t: 's', r: 0.045, p: [0, 0.65, 0.11], c: '#ff8fb5', seg: 8 },
+        { t: 's', r: 0.045, p: [0, 0.48, 0.11], c: '#8fd3ff', seg: 8 },
+        { t: 'b', w: 0.3, h: 0.05, d: 0.03, rad: 0.02, p: [-0.4, 0.68, 0.11], rot: [0, 0, 1.0], c: '#ffffff' },
+        { t: 'b', w: 0.3, h: 0.05, d: 0.03, rad: 0.02, p: [0.4, 0.68, 0.11], rot: [0, 0, -1.0], c: '#ffffff' },
+        ...face(flat(0.12), 1.02, 0.09, 0.035),
+      ];
+    },
+  },
 };
 
 export const ITEM_SCALE = 0.9;
@@ -644,6 +1101,7 @@ export function getItemType(id) {
   if (t) return t;
   const def = ITEM_DEFS[id];
   if (!def) throw new Error('Unknown item ' + id);
+  // (geometry detail follows setDetail(); call it before the first build)
   const sc = def.scale ?? ITEM_SCALE;
   let geo = mergeParts(def.parts());
   geo.scale(sc, sc, sc);

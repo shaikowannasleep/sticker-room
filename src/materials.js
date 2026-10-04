@@ -9,10 +9,12 @@ export const shared = {
   uGround: { value: new THREE.Color('#e3c4dc') },
   uLightCol: { value: new THREE.Color('#fff0dc') },
   uRim: { value: new THREE.Color('#ffd6f0') },
+  uTime: { value: 0 },
 };
 
 const VERT = /* glsl */ `
 uniform float uOutline;
+uniform float uTime;
 varying vec3 vN;
 varying vec3 vV;
 varying vec3 vCol;
@@ -23,13 +25,25 @@ void main() {
   #else
     vCol = vec3(1.0);
   #endif
+  #ifdef USE_INSTANCING_COLOR
+    vCol *= instanceColor;
+  #endif
   vUv = uv;
   vec3 p = position;
   #ifdef OUTLINE
     p += normal * uOutline;
   #endif
-  vec4 wp = modelMatrix * vec4(p, 1.0);
-  vN = normalize(mat3(modelMatrix) * normal);
+  #ifdef USE_INSTANCING
+    mat4 mm = modelMatrix * instanceMatrix;
+  #else
+    mat4 mm = modelMatrix;
+  #endif
+  vec4 wp = mm * vec4(p, 1.0);
+  #ifdef WIND
+    float sway = sin(uTime * 1.7 + mm[3].x * 0.45 + mm[3].z * 0.31) + 0.4 * sin(uTime * 3.1 + mm[3].x);
+    wp.xz += vec2(0.09, 0.05) * sway * max(position.y, 0.0);
+  #endif
+  vN = normalize(mat3(mm) * normal);
   vV = cameraPosition - wp.xyz;
   gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
@@ -83,8 +97,9 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
-export function makeMat({ map = null, outline = false, ghost = false, vertexColors = true, doubleSide = false } = {}) {
+export function makeMat({ map = null, outline = false, ghost = false, vertexColors = true, doubleSide = false, wind = false } = {}) {
   const defines = {};
+  if (wind) defines.WIND = '';
   if (outline) defines.OUTLINE = '';
   if (ghost) defines.GHOST = '';
   if (map) defines.USE_MAP = '';

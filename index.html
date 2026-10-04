@@ -35,6 +35,19 @@
       <div class="bottom">
         <button id="btn-hint" class="chunky yellow"><span class="ico">💡</span> Hint <em id="hint-cost">free</em></button>
       </div>
+      <div id="zoom" class="zoom">
+        <button id="zoom-in" class="round small" aria-label="Zoom in">＋</button>
+        <button id="zoom-out" class="round small" aria-label="Zoom out">－</button>
+        <button id="zoom-reset" class="round small dim" aria-label="Reset view">⤢</button>
+      </div>
+      <div id="zen-bar">
+        <button id="zen-photo" class="round small" aria-label="Photo mode">👁</button>
+        <button id="zen-clear" class="round small" aria-label="Clear room">🧹</button>
+      </div>
+      <div id="tray">
+        <div class="tray-head"><span>🧺 Sticker tray</span><b id="tray-count">0</b><i class="trash-hint">Drop here to put away</i></div>
+        <div id="tray-list"></div>
+      </div>
       <div id="hand"></div>
       <div id="floaters"></div>
       <div id="combo"></div>
@@ -49,9 +62,11 @@
       </div>
       <div class="menu-bottom">
         <button id="btn-play" class="chunky pink big">▶ Play</button>
-        <div class="row">
-          <button id="btn-levels" class="chunky mint">🏠 Rooms</button>
-          <button id="btn-settings" class="chunky lav">⚙️ Settings</button>
+        <div class="row icon-row">
+          <button id="btn-levels" class="chunky mint"><span>🏠</span>Rooms</button>
+          <button id="btn-zen" class="chunky green"><span>🌿</span>Zen</button>
+          <button id="btn-code" class="chunky yellow"><span>🔑</span>Code</button>
+          <button id="btn-settings" class="chunky lav"><span>⚙️</span>Settings</button>
         </div>
       </div>
     </div>
@@ -59,7 +74,7 @@
     <!-- LEVEL SELECT -->
     <div id="levels" class="layer hidden">
       <div class="sheet">
-        <div class="sheet-head"><h2>Rooms</h2><button id="levels-close" class="round small" aria-label="Close">✕</button></div>
+        <div class="sheet-head"><h2 id="levels-title">Rooms</h2><button id="levels-close" class="round small" aria-label="Close">✕</button></div>
         <div id="levels-list"></div>
       </div>
     </div>
@@ -70,6 +85,7 @@
         <div class="ribbon">Room Complete!</div>
         <div id="win-stars" class="stars"><i></i><i></i><i></i></div>
         <div class="win-coins"><span class="coin"></span> <b id="win-coins">+0</b></div>
+        <button id="win-code" class="win-code">🔑 Save code <b id="win-code-txt">----</b> <span>copy</span></button>
         <div class="win-btns">
           <button id="btn-next" class="chunky pink big">Next ▶</button>
           <div class="row">
@@ -88,6 +104,10 @@
         <label class="tog"><span>🎵 Music</span><input type="checkbox" id="set-music" /><i></i></label>
         <label class="tog"><span>📳 Vibration</span><input type="checkbox" id="set-haptics" /><i></i></label>
         <label class="tog"><span>🔋 Battery saver (30 fps)</span><input type="checkbox" id="set-saver" /><i></i></label>
+        <div class="tog gfx"><span>🎨 Graphics <small id="gfx-note"></small></span>
+          <div class="seg" id="set-gfx"><button data-v="auto">Auto</button><button data-v="low">Smooth</button><button data-v="high">Pretty</button></div>
+        </div>
+        <button id="settings-code" class="chunky yellow wide">🔑 Save / load code</button>
         <button id="btn-reset" class="link">Reset progress</button>
       </div>
     </div>
@@ -95,14 +115,29 @@
     <!-- PAUSE -->
     <div id="pause" class="layer hidden">
       <div class="card">
-        <h2>Paused</h2>
+        <h2 id="pause-title">Paused</h2>
         <div class="win-btns">
           <button id="btn-resume" class="chunky pink big">▶ Resume</button>
           <div class="row">
             <button id="btn-restart" class="chunky yellow">↻ Restart</button>
             <button id="btn-quit" class="chunky lav">🏠 Menu</button>
           </div>
+          <button id="pause-code" class="link">🔑 My save code</button>
         </div>
+      </div>
+    </div>
+
+    <!-- SAVE CODE -->
+    <div id="code" class="layer hidden">
+      <div class="card">
+        <div class="sheet-head"><h2>🔑 Save code</h2><button id="code-close" class="round small" aria-label="Close">✕</button></div>
+        <p class="code-help">Write this down to continue on any device:</p>
+        <div class="code-now" id="code-now">----</div>
+        <button id="code-copy" class="chunky mint">📋 Copy</button>
+        <div class="code-sep">or continue with a code</div>
+        <input id="code-in" class="code-in" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXX" />
+        <div id="code-err" class="code-err"></div>
+        <button id="code-go" class="chunky pink">Continue ▶</button>
       </div>
     </div>
 
@@ -110,6 +145,7 @@
       <div class="loader"><div class="blob"></div><div class="blob b2"></div><div class="blob b3"></div></div>
       <div id="loading-txt">Packing boxes…</div>
     </div>
+    <button id="photo-exit" class="round" aria-label="Exit photo mode">👁</button>
     <div id="fade"></div>
   </div>
   <script type="module" src="/src/main.js"></script>

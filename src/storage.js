@@ -5,7 +5,9 @@ const defaults = () => ({
   stars: {},
   hintsUsedFree: {},
   tutorialDone: false,
-  settings: { sound: true, music: true, haptics: true, saver: false },
+  tutorialPlays: 0,
+  zen: {},
+  settings: { sound: true, music: true, haptics: true, saver: false, gfx: 'auto' },
 });
 
 export function loadSave() {

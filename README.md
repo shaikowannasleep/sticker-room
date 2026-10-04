@@ -17,12 +17,20 @@ npm run build      # static site in dist/ — host anywhere (Netlify, GitHub Pag
 ```
 
 ## Game
-- 4 rooms × 3 stages (12 levels); each stage adds new stickers on top of the previous ones.
+- 10 rooms × 3 stages (30 levels): Bedroom, Café, Living Room, Study, Bathroom, Kids Playroom, Garden, Bakery, Flower Shop, Winter Cabin. Each stage adds new stickers on top of the previous ones; duplicate stickers can go in any of their matching outlines.
+- **Zen mode**: no goals — drag any unlocked sticker from the tray into an empty room, tap to turn it, drop wall decor near a wall to hang it, drop on the tray to put it away. Saved per room.
+- **Zoom & pan**: pinch / mouse wheel / ＋－ buttons, double-tap to zoom, drag empty space to pan.
+- **Save codes**: a 7-character code (e.g. `Z3RB-55W`) restores progress, stars and coins on any device.
+- Guided hand on the first 3 levels; it comes back by itself after ~9 s without input.
+- A little meadow (hills, trees, flowers, wind-swayed grass) surrounds the diorama.
 - Items are Jolt rigid bodies: ballistic pop-out, springy carry with sway, bounces, weeble self-righting.
 - Placed stickers become static colliders, so loose items can rest on them.
 - Hints (first per level free), combos, coins, stars, saved progress (localStorage), PWA manifest.
 
 ## Why it stays cool on phones
+- Auto graphics tier (`src/tier.js`) from the GPU string / RAM / cores: **Smooth** (weak phones: DPR 1, no MSAA, lower-poly models, no grass/wind, and *zero* frames rendered while idle), **Balanced**, **Pretty**. Overridable in Settings.
+- All models are welded into indexed meshes (~5× fewer vertices than before); meadow grass/flowers are instanced (1 draw call each), wind is computed in the vertex shader.
+- After 45 s without input the ambient frame rate drops further; physics is not stepped at all while every body sleeps.
 - One custom toon shader, no shadow maps, no post-processing; analytic blob shadows.
 - Static room merged into a handful of draw calls (~36 draw calls, ~75k tris per frame).
 - Render-on-demand: 60 fps only while something moves (capped at 60 even on 120 Hz screens), 20 fps ambient when idle, nothing when the tab is hidden.

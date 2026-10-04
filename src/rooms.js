@@ -22,13 +22,13 @@ function windowParts(wall, u, y, w, h, o = {}) {
   const P = [];
   const sky = o.sky || ['#9fd8ff', '#d9f1ff'];
   P.push(W.box(wall, u, y, w + 0.5, h + 0.5, 0.2, 0, o.frame || '#ffffff', 0.08));
-  P.push(W.box(wall, u, y + h * 0.25, w, h * 0.5, 0.1, 0.1, sky[0], 0.02));
-  P.push(W.box(wall, u, y - h * 0.25, w, h * 0.5, 0.1, 0.1, sky[1], 0.02));
-  P.push(W.ball(wall, u + w * 0.22, y + h * 0.18, 0.28, 0.2, 0.21, '#ffe27a'));
-  P.push(W.ball(wall, u - w * 0.18, y - h * 0.12, 0.2, 0.2, 0.21, '#ffffff'));
-  P.push(W.ball(wall, u - w * 0.05, y - h * 0.16, 0.26, 0.2, 0.21, '#ffffff'));
-  P.push(W.box(wall, u, y, 0.1, h, 0.08, 0.13, o.frame || '#ffffff', 0.02));
-  P.push(W.box(wall, u, y, w, 0.1, 0.08, 0.13, o.frame || '#ffffff', 0.02));
+  P.push(W.box(wall, u, y + h * 0.25, w, h * 0.5 - 0.005, 0.1, 0.135, sky[0], 0.02));
+  P.push(W.box(wall, u, y - h * 0.25, w, h * 0.5 - 0.005, 0.1, 0.135, sky[1], 0.02));
+  P.push(W.ball(wall, u + w * 0.22, y + h * 0.18, 0.28, 0.2, 0.25, o.sun || '#ffe27a'));
+  P.push(W.ball(wall, u - w * 0.18, y - h * 0.12, 0.2, 0.2, 0.25, '#ffffff'));
+  P.push(W.ball(wall, u - w * 0.05, y - h * 0.16, 0.26, 0.2, 0.255, '#ffffff'));
+  P.push(W.box(wall, u, y, 0.1, h, 0.1, 0.17, o.frame || '#ffffff', 0.02));
+  P.push(W.box(wall, u, y, w, 0.1, 0.09, 0.175, o.frame || '#ffffff', 0.02));
   P.push(W.box(wall, u, y - h / 2 - 0.2, w + 0.8, 0.14, 0.45, 0, o.frame || '#ffffff', 0.05));
   if (o.curtain) {
     const cw = w * 0.32;
@@ -42,7 +42,7 @@ function windowParts(wall, u, y, w, h, o = {}) {
 // ---------------------------------------------------------------------------
 // Room specs. blocks: furniture (visual + collider). slot: {t,x,z,y|on} floor/furniture, {t,wall,u,yc} wall.
 // ---------------------------------------------------------------------------
-export const ROOMS = [
+const BASE_ROOMS = [
   {
     id: 'bedroom',
     name: 'Dreamy Bedroom',
@@ -279,6 +279,343 @@ export const ROOMS = [
   },
 ];
 
+
+const MORE_ROOMS = [
+  {
+    id: 'living',
+    name: 'Cozy Living Room',
+    emoji: '🛋️',
+    bg: ['#ffd8c2', '#fff4e3'],
+    sky: '#fff8f0',
+    ground: '#ead1c0',
+    wall: { style: 'stripes', a: '#ffe8da', b: '#ffdccb' },
+    floor: { style: 'wood', a: '#e9c39b', b: '#ddb185' },
+    base: '#e7a37e',
+    trim: '#ffffff',
+    blocks: [
+      { n: 'sofa', x: -1.5, z: -2.85, w: 3.6, d: 1.3, h: 0.7, c: '#ff9fb5', rad: 0.2 },
+      { n: 'sofa-back', x: -1.5, z: -3.32, w: 3.6, d: 0.36, h: 1.55, c: '#ff8fab', rad: 0.16, noAO: true },
+      { n: 'sofa-armL', x: -3.12, z: -2.75, w: 0.36, d: 1.5, h: 1.05, c: '#ff8fab', rad: 0.16, noAO: true },
+      { n: 'sofa-armR', x: 0.12, z: -2.75, w: 0.36, d: 1.5, h: 1.05, c: '#ff8fab', rad: 0.16, noAO: true },
+      { n: 'cushL', x: -2.2, z: -2.75, w: 1.4, d: 1.1, h: 0.14, y0: 0.7, c: '#ffc2d1', rad: 0.06, noAO: true },
+      { n: 'cushR', x: -0.8, z: -2.75, w: 1.4, d: 1.1, h: 0.14, y0: 0.7, c: '#ffc2d1', rad: 0.06, noAO: true },
+      { n: 'tvstand', x: 3.0, z: -2.95, w: 2.4, d: 1.0, h: 0.9, c: '#f6e0c4', rad: 0.1 },
+      { n: 'tv-d1', x: 2.45, z: -2.43, w: 1.0, d: 0.06, h: 0.4, y0: 0.25, c: '#e9c39b', rad: 0.03, solid: false, noAO: true },
+      { n: 'tv-d2', x: 3.55, z: -2.43, w: 1.0, d: 0.06, h: 0.4, y0: 0.25, c: '#e9c39b', rad: 0.03, solid: false, noAO: true },
+      { n: 'table', x: -0.9, z: 0.0, w: 2.2, d: 1.1, h: 0.55, c: '#e5b48a', rad: 0.12 },
+      { n: 'shelf', x: 3.0, z: -3.2, w: 2.2, d: 0.6, h: 0.14, y0: 3.0, c: '#e5a688', rad: 0.05, noAO: true },
+    ],
+    rug: { x: -0.6, z: 0.4, r: 2.1, c: '#ffd0a8', c2: '#fff2e4' },
+    deco: () => [...windowParts('left', -0.2, 3.4, 2.0, 1.6, { curtain: '#ffb08a' })],
+    stages: [
+      [
+        { t: 'pillow', x: -2.2, z: -2.7, y: 0.84, ry: 0.2 },
+        { t: 'tv', x: 3.3, z: -2.95, y: 0.9, ry: -0.1 },
+        { t: 'mug', x: -1.5, z: 0.1, y: 0.55, ry: 0.4 },
+        { t: 'fern', x: -3.9, z: -1.2, y: 0, ry: 0.3 },
+        { t: 'heart', x: -0.6, z: -2.7, y: 0.84, ry: -0.2 },
+      ],
+      [
+        { t: 'frame', wall: 'back', u: -1.5, yc: 3.2 },
+        { t: 'clock', wall: 'back', u: 0.9, yc: 3.4 },
+        { t: 'books', x: -0.4, z: -0.1, y: 0.55, ry: 0.1 },
+        { t: 'kitty', x: 0.9, z: 1.4, y: 0, ry: 0.5 },
+        { t: 'radio', x: 2.45, z: -3.2, y: 3.14, ry: 0.1 },
+        { t: 'succulent', x: 3.65, z: -3.2, y: 3.14, ry: 0.2 },
+      ],
+      [
+        { t: 'garland', wall: 'back', u: -1.5, yc: 4.7 },
+        { t: 'lamp', x: 2.1, z: -2.95, y: 0.9, ry: 0 },
+        { t: 'cloud', wall: 'left', u: 2.0, yc: 3.2 },
+        { t: 'star', wall: 'left', u: 2.9, yc: 4.5 },
+        { t: 'teddy', x: 1.9, z: 1.0, y: 0, ry: 0.4 },
+        { t: 'piggy', x: -2.1, z: 1.7, y: 0, ry: 0.6 },
+        { t: 'ball', x: 0.5, z: 2.7, y: 0, ry: 0 },
+      ],
+    ],
+  },
+  {
+    id: 'bath',
+    name: 'Bubbly Bathroom',
+    emoji: '🛁',
+    bg: ['#bfe9ff', '#effaff'],
+    sky: '#f4fcff',
+    ground: '#c8dfee',
+    wall: { style: 'tiles', a: '#eef9ff', b: '#d9f1ff' },
+    floor: { style: 'tiles', a: '#ffffff', b: '#d6eeff' },
+    base: '#7fbfe6',
+    trim: '#ffffff',
+    blocks: [
+      { n: 'tub', x: -3.35, z: -1.7, w: 2.2, d: 3.4, h: 0.95, c: '#ffffff', rad: 0.3 },
+      { n: 'water', x: -3.35, z: -1.7, w: 1.8, d: 3.0, h: 0.04, y0: 0.95, c: '#9fdcff', rad: 0.02, solid: false, noAO: true },
+      { n: 'counter', x: 1.2, z: -3.0, w: 2.8, d: 1.0, h: 1.15, c: '#ffd9e6', rad: 0.12 },
+      { n: 'ct-d1', x: 0.5, z: -2.48, w: 1.1, d: 0.06, h: 0.6, y0: 0.3, c: '#ffc2d6', rad: 0.03, solid: false, noAO: true },
+      { n: 'ct-d2', x: 1.9, z: -2.48, w: 1.1, d: 0.06, h: 0.6, y0: 0.3, c: '#ffc2d6', rad: 0.03, solid: false, noAO: true },
+      { n: 'basin', x: 1.2, z: -3.05, cyl: 0.45, h: 0.1, y0: 1.15, c: '#ffffff', solid: false, noAO: true },
+      { n: 'shelfA', x: 3.6, z: -3.2, w: 1.7, d: 0.6, h: 0.14, y0: 2.2, c: '#9fd3f0', rad: 0.05, noAO: true },
+      { n: 'shelfB', x: 3.6, z: -3.2, w: 1.7, d: 0.6, h: 0.14, y0: 3.3, c: '#9fd3f0', rad: 0.05, noAO: true },
+      { n: 'hamper', x: 3.7, z: -1.3, cyl: 0.5, h: 0.9, c: '#c9b3ff', rad: 0.05 },
+    ],
+    rug: { x: 0.6, z: 0.8, r: 1.5, c: '#ffd0e4', c2: '#ffffff' },
+    deco: () => [
+      ...windowParts('left', -1.7, 3.5, 1.6, 1.2, { curtain: '#bfe6ff' }),
+      { t: 'c', rt: 0.06, rb: 0.06, h: 0.45, p: [1.2, 1.38, -3.42], c: '#d9dde8' },
+      { t: 'b', w: 0.1, h: 0.08, d: 0.35, rad: 0.03, p: [1.2, 1.56, -3.28], c: '#d9dde8' },
+      { t: 's', r: 0.16, p: [-2.9, 1.0, -3.0], c: '#ffffff' },
+      { t: 's', r: 0.11, p: [-2.65, 1.0, -3.15], c: '#eaf7ff' },
+      { t: 's', r: 0.13, p: [-4.0, 1.0, 0.0], c: '#ffffff' },
+    ],
+    stages: [
+      [
+        { t: 'duck', x: -3.4, z: -0.9, y: 0.95, ry: 0.5 },
+        { t: 'soap', x: 0.25, z: -2.85, y: 1.15, ry: 0.3 },
+        { t: 'toothcup', x: 2.2, z: -3.05, y: 1.15, ry: 0 },
+        { t: 'mirror', wall: 'back', u: 1.2, yc: 2.75 },
+        { t: 'towels', x: 3.6, z: -3.2, y: 2.34, ry: 0 },
+      ],
+      [
+        { t: 'duck', x: -3.0, z: -2.3, y: 0.95, ry: 0.2 },
+        { t: 'candle', x: -4.0, z: -3.0, y: 0.95, ry: 0 },
+        { t: 'cloud', wall: 'left', u: 1.4, yc: 3.6 },
+        { t: 'jar', x: 3.7, z: -1.3, y: 0.9, ry: 0.3 },
+        { t: 'succulent', x: 3.25, z: -3.2, y: 3.44, ry: 0.2 },
+        { t: 'penguin', x: 0.6, z: 0.8, y: 0, ry: 0.5 },
+      ],
+      [
+        { t: 'star', wall: 'left', u: 3.0, yc: 4.3 },
+        { t: 'soap', x: -3.8, z: -1.6, y: 0.95, ry: 0.6 },
+        { t: 'tulips', x: 4.05, z: -3.2, y: 3.44, ry: 0 },
+        { t: 'bunny', x: -1.4, z: 1.6, y: 0, ry: 0.4 },
+        { t: 'ball', x: 1.8, z: 2.1, y: 0, ry: 0 },
+        { t: 'rainbow', wall: 'back', u: -1.2, yc: 3.6 },
+        { t: 'gift', x: 2.8, z: 0.9, y: 0, ry: 0.3 },
+      ],
+    ],
+  },
+  {
+    id: 'kids',
+    name: 'Kids Playroom',
+    emoji: '🧸',
+    bg: ['#fff1a8', '#e3f6ff'],
+    sky: '#fffdf0',
+    ground: '#e8e0b8',
+    wall: { style: 'dots', a: '#fff3c4', b: '#ffffff' },
+    floor: { style: 'carpet', a: '#bdeccd', b: '#a8e0bd' },
+    base: '#f2b84b',
+    trim: '#ffffff',
+    blocks: [
+      { n: 'bed', x: -3.35, z: -1.9, w: 2.2, d: 3.0, h: 0.6, c: '#9fd3ff', rad: 0.12 },
+      { n: 'mattress', x: -3.35, z: -1.95, w: 2.05, d: 2.8, h: 0.35, y0: 0.6, c: '#ffffff', rad: 0.14 },
+      { n: 'blanket', x: -3.35, z: -1.1, w: 2.1, d: 1.4, h: 0.12, y0: 0.95, c: '#ffd35e', rad: 0.06 },
+      { n: 'headboard', x: -3.35, z: -3.36, w: 2.3, d: 0.22, h: 1.5, c: '#7fc0f0', rad: 0.1, noAO: true },
+      { n: 'chest', x: -0.7, z: -2.95, w: 2.0, d: 1.1, h: 0.95, c: '#ff9fa8', rad: 0.14 },
+      { n: 'chest-band', x: -0.7, z: -2.38, w: 2.02, d: 0.06, h: 0.12, y0: 0.7, c: '#ffe08a', rad: 0.03, solid: false, noAO: true },
+      { n: 'cubby', x: 2.6, z: -3.0, w: 3.2, d: 1.0, h: 1.5, c: '#c7b6ff', rad: 0.12 },
+      { n: 'cub-1', x: 1.85, z: -2.48, w: 1.2, d: 0.05, h: 0.5, y0: 0.2, c: '#a996ee', rad: 0.04, solid: false, noAO: true },
+      { n: 'cub-2', x: 3.35, z: -2.48, w: 1.2, d: 0.05, h: 0.5, y0: 0.2, c: '#a996ee', rad: 0.04, solid: false, noAO: true },
+      { n: 'cub-3', x: 1.85, z: -2.48, w: 1.2, d: 0.05, h: 0.4, y0: 0.85, c: '#a996ee', rad: 0.04, solid: false, noAO: true },
+      { n: 'cub-4', x: 3.35, z: -2.48, w: 1.2, d: 0.05, h: 0.4, y0: 0.85, c: '#a996ee', rad: 0.04, solid: false, noAO: true },
+      { n: 'table', x: 1.4, z: -0.6, w: 1.6, d: 1.1, h: 0.7, c: '#ffe08a', rad: 0.12 },
+      { n: 'shelf', x: -0.7, z: -3.2, w: 2.2, d: 0.6, h: 0.14, y0: 2.7, c: '#ffb3c7', rad: 0.05, noAO: true },
+    ],
+    rug: { x: 0.2, z: 1.4, r: 1.8, c: '#ffb3cf', c2: '#fff0f6' },
+    deco: () => [...windowParts('back', 2.6, 3.75, 2.2, 1.3, { curtain: '#ffe08a' })],
+    stages: [
+      [
+        { t: 'teddy', x: -3.35, z: -0.9, y: 1.07, ry: 0.5 },
+        { t: 'blocks', x: 1.4, z: -0.6, y: 0.7, ry: 0.3 },
+        { t: 'ball', x: 0.4, z: 1.5, y: 0, ry: 0 },
+        { t: 'rocket', x: 1.9, z: -3.0, y: 1.5, ry: 0.2 },
+        { t: 'duck', x: -0.2, z: -2.9, y: 0.95, ry: 0.4 },
+      ],
+      [
+        { t: 'dino', x: 3.4, z: -2.95, y: 1.5, ry: 0.5 },
+        { t: 'robot', x: -1.25, z: -2.9, y: 0.95, ry: 0.3 },
+        { t: 'star', wall: 'left', u: -2.0, yc: 3.2 },
+        { t: 'moon', wall: 'left', u: -0.4, yc: 4.2 },
+        { t: 'books', x: -1.2, z: -3.2, y: 2.84, ry: 0.1 },
+        { t: 'pillow', x: -3.35, z: -2.85, y: 0.95, ry: 0 },
+      ],
+      [
+        { t: 'rainbow', wall: 'back', u: -0.7, yc: 4.35 },
+        { t: 'bunny', x: 0.9, z: 2.4, y: 0, ry: 0.4 },
+        { t: 'camera', x: -0.15, z: -3.2, y: 2.84, ry: 0.3 },
+        { t: 'yarn', x: -1.3, z: 2.3, y: 0, ry: 0 },
+        { t: 'cloud', wall: 'left', u: 1.4, yc: 3.3 },
+        { t: 'gift', x: 3.3, z: -0.6, y: 0, ry: 0.3 },
+        { t: 'piggy', x: -2.3, z: 1.0, y: 0, ry: 0.6 },
+      ],
+    ],
+  },
+  {
+    id: 'bakery',
+    name: 'Sugar Bakery',
+    emoji: '🥐',
+    bg: ['#ffd6e0', '#fff3e0'],
+    sky: '#fff7f2',
+    ground: '#ecd2cf',
+    wall: { style: 'stripes', a: '#fff0ea', b: '#ffdce4' },
+    floor: { style: 'tiles', a: '#fff3df', b: '#efd2b8' },
+    base: '#d98f7a',
+    trim: '#ffffff',
+    blocks: [
+      { n: 'counter', x: -1.9, z: -2.95, w: 5.0, d: 1.1, h: 1.25, c: '#ffe3d1', rad: 0.12 },
+      { n: 'ct-top', x: -1.9, z: -2.9, w: 5.2, d: 1.3, h: 0.1, y0: 1.25, c: '#ff9fb5', rad: 0.04, noAO: true },
+      { n: 'ct-p1', x: -3.4, z: -2.38, w: 1.4, d: 0.06, h: 0.7, y0: 0.25, c: '#ffd0bd', rad: 0.03, solid: false, noAO: true },
+      { n: 'ct-p2', x: -1.9, z: -2.38, w: 1.4, d: 0.06, h: 0.7, y0: 0.25, c: '#ffd0bd', rad: 0.03, solid: false, noAO: true },
+      { n: 'ct-p3', x: -0.4, z: -2.38, w: 1.4, d: 0.06, h: 0.7, y0: 0.25, c: '#ffd0bd', rad: 0.03, solid: false, noAO: true },
+      { n: 'shelfA', x: -2.3, z: -3.2, w: 3.4, d: 0.6, h: 0.14, y0: 2.5, c: '#e5a688', rad: 0.05, noAO: true },
+      { n: 'shelfB', x: -2.3, z: -3.2, w: 3.4, d: 0.6, h: 0.14, y0: 3.6, c: '#e5a688', rad: 0.05, noAO: true },
+      { n: 'table', x: 3.0, z: -1.4, cyl: 0.9, h: 1.1, c: '#fff6ea', rad: 0.05 },
+      { n: 'stand', x: 3.1, z: -3.05, w: 2.6, d: 0.8, h: 0.9, c: '#ffd0e4', rad: 0.1 },
+    ],
+    rug: { x: 0.4, z: 1.4, r: 1.6, c: '#ffc4d4', c2: '#fff6ea' },
+    deco: () => [
+      ...windowParts('left', -1.4, 3.4, 1.8, 1.5, { curtain: '#ff9fb5' }),
+      W.box('left', 1.8, 2.8, 1.4, 1.5, 0.1, 0, '#5b4a6a', 0.05),
+      W.box('left', 1.8, 2.8, 1.2, 1.3, 0.05, 0.1, '#6d5c80', 0.03),
+      W.ball('left', 1.55, 3.05, 0.12, 0.3, 0.16, '#ffb3cf'),
+      W.ball('left', 2.05, 2.55, 0.1, 0.3, 0.16, '#ffe27a'),
+    ],
+    stages: [
+      [
+        { t: 'cake', x: -3.4, z: -2.9, y: 1.35, ry: 0.2 },
+        { t: 'bread', x: -2.1, z: -2.85, y: 1.35, ry: 0.15 },
+        { t: 'croissant', x: -0.9, z: -2.7, y: 1.35, ry: 0 },
+        { t: 'cupcake', x: 2.7, z: -1.5, y: 1.1, ry: 0.2 },
+        { t: 'teapot', x: 3.75, z: -3.05, y: 0.9, ry: 0.3 },
+      ],
+      [
+        { t: 'macarons', x: 0.15, z: -2.9, y: 1.35, ry: 0.3 },
+        { t: 'donut', x: 3.35, z: -1.2, y: 1.1, ry: 0.4 },
+        { t: 'jar', x: -3.4, z: -3.2, y: 2.64, ry: 0.2 },
+        { t: 'mug', x: -2.3, z: -3.2, y: 2.64, ry: 0.4 },
+        { t: 'clock', wall: 'back', u: 3.1, yc: 3.2 },
+        { t: 'strawberry', x: -1.25, z: -3.2, y: 2.64, ry: 0 },
+      ],
+      [
+        { t: 'croissant', x: -3.4, z: -3.2, y: 3.74, ry: 0.3 },
+        { t: 'bread', x: -2.25, z: -3.2, y: 3.74, ry: 0 },
+        { t: 'candle', x: -1.15, z: -3.2, y: 3.74, ry: 0 },
+        { t: 'garland', wall: 'back', u: 3.0, yc: 4.6 },
+        { t: 'kitty', x: 0.8, z: 1.2, y: 0, ry: 0.5 },
+        { t: 'cake', x: 2.5, z: -3.05, y: 0.9, ry: -0.2 },
+        { t: 'piggy', x: -1.6, z: 1.8, y: 0, ry: 0.6 },
+      ],
+    ],
+  },
+  {
+    id: 'flower',
+    name: 'Bloom Flower Shop',
+    emoji: '💐',
+    bg: ['#d9f7d0', '#fff0f5'],
+    sky: '#f8fff4',
+    ground: '#d0e8c4',
+    wall: { style: 'hearts', a: '#e6f8ea', b: '#ffd6e4' },
+    floor: { style: 'wood', a: '#f0d6b8', b: '#e6c7a3' },
+    base: '#8fcf9a',
+    trim: '#ffffff',
+    blocks: [
+      { n: 'step1', x: -1.5, z: -2.3, w: 4.2, d: 2.4, h: 0.55, c: '#f6dcc0', rad: 0.1 },
+      { n: 'step2', x: -1.5, z: -2.7, w: 4.2, d: 1.6, h: 1.1, c: '#f1d1b1', rad: 0.1, noAO: true },
+      { n: 'step3', x: -1.5, z: -3.1, w: 4.2, d: 0.8, h: 1.65, c: '#ebc6a3', rad: 0.1, noAO: true },
+      { n: 'counter', x: 3.3, z: -2.4, w: 2.0, d: 1.2, h: 1.2, c: '#ffd0e4', rad: 0.12 },
+      { n: 'ct-band', x: 3.3, z: -1.78, w: 2.02, d: 0.05, h: 0.2, y0: 0.8, c: '#b6f0c8', rad: 0.03, solid: false, noAO: true },
+    ],
+    rug: { x: 0.8, z: 1.6, r: 1.5, c: '#ffd6e4', c2: '#fff6f9' },
+    deco: () => [
+      ...windowParts('back', 3.3, 3.6, 1.8, 1.4, { curtain: '#b6f0c8' }),
+      ...[[-3.2, -1.35, '#ff8fb5'], [-2.5, -1.3, '#ffe27a'], [0.2, -1.3, '#d9c7ff']].map(([x, z, c]) => ({ t: 's', r: 0.09, p: [x, 0.62, z], c })),
+    ],
+    stages: [
+      [
+        { t: 'sunflower', x: -2.8, z: -3.1, y: 1.65, ry: 0.2 },
+        { t: 'tulips', x: -1.5, z: -2.3, y: 1.1, ry: 0.3 },
+        { t: 'cactus', x: -0.2, z: -1.5, y: 0.55, ry: 0.3 },
+        { t: 'basket', x: 3.0, z: -2.4, y: 1.2, ry: 0.2 },
+        { t: 'watering', x: 1.4, z: -1.0, y: 0, ry: 0.3 },
+      ],
+      [
+        { t: 'fern', x: -0.2, z: -3.1, y: 1.65, ry: 0.3 },
+        { t: 'succulent', x: -3.0, z: -2.3, y: 1.1, ry: 0.2 },
+        { t: 'vase', x: -2.9, z: -1.5, y: 0.55, ry: 0 },
+        { t: 'tulips', x: 0.0, z: -2.3, y: 1.1, ry: -0.2 },
+        { t: 'frame', wall: 'left', u: 1.2, yc: 4.0 },
+        { t: 'candle', x: -1.6, z: -1.5, y: 0.55, ry: 0 },
+      ],
+      [
+        { t: 'sunflower', x: -1.55, z: -3.1, y: 1.65, ry: -0.2 },
+        { t: 'garland', wall: 'back', u: -1.5, yc: 4.5 },
+        { t: 'bunny', x: 0.6, z: 1.8, y: 0, ry: 0.4 },
+        { t: 'cloud', wall: 'left', u: -1.8, yc: 3.6 },
+        { t: 'jar', x: 3.9, z: -2.2, y: 1.2, ry: 0.2 },
+        { t: 'kitty', x: -2.6, z: 0.4, y: 0, ry: 0.5 },
+        { t: 'heart', x: 2.4, z: 1.0, y: 0, ry: 0.3 },
+      ],
+    ],
+  },
+  {
+    id: 'cabin',
+    name: 'Winter Cabin',
+    emoji: '🎄',
+    bg: ['#c9c4ff', '#ffe3ef'],
+    sky: '#f6f2ff',
+    ground: '#d5c8e8',
+    wall: { style: 'wood', a: '#f0cfae', b: '#e8c29d' },
+    floor: { style: 'wood', a: '#d4a07a', b: '#c8926b' },
+    base: '#a8735a',
+    trim: '#fff6ee',
+    blocks: [
+      { n: 'fireplace', x: 1.0, z: -3.1, w: 2.8, d: 0.8, h: 1.6, c: '#f0c4b4', rad: 0.1 },
+      { n: 'mantel', x: 1.0, z: -3.0, w: 3.2, d: 1.0, h: 0.14, y0: 1.6, c: '#a8735a', rad: 0.05, noAO: true },
+      { n: 'firebox', x: 1.0, z: -2.69, w: 1.4, d: 0.04, h: 0.9, y0: 0.1, c: '#4b3a4a', rad: 0.02, solid: false, noAO: true },
+      { n: 'chair', x: -2.8, z: -2.3, w: 1.6, d: 1.4, h: 0.7, c: '#9fc8ff', rad: 0.18 },
+      { n: 'chair-back', x: -2.8, z: -3.1, w: 1.6, d: 0.4, h: 1.6, c: '#8fbaf5', rad: 0.16, noAO: true },
+      { n: 'chair-armL', x: -3.6, z: -2.3, w: 0.3, d: 1.4, h: 1.0, c: '#8fbaf5', rad: 0.12, noAO: true },
+      { n: 'chair-armR', x: -2.0, z: -2.3, w: 0.3, d: 1.4, h: 1.0, c: '#8fbaf5', rad: 0.12, noAO: true },
+      { n: 'sidetable', x: -1.2, z: -2.6, cyl: 0.5, h: 0.9, c: '#c98f68', rad: 0.05 },
+    ],
+    rug: { x: 0.6, z: 0.2, r: 2.0, c: '#ff9fb5', c2: '#ffe3ef' },
+    deco: () => [
+      ...windowParts('left', -1.6, 3.4, 1.8, 1.5, { curtain: '#ff9fb5', sky: ['#7b78d6', '#b9b2ff'], sun: '#fff6c8' }),
+      { t: 'c', rt: 0.08, rb: 0.08, h: 1.0, p: [1.0, 0.2, -2.6], rot: [0, 0, Math.PI / 2], c: '#8a5434' },
+      { t: 's', r: 0.24, p: [0.82, 0.48, -2.6], sc: [1, 1.35, 0.5], c: '#ff8a4d' },
+      { t: 's', r: 0.2, p: [1.18, 0.44, -2.58], sc: [1, 1.45, 0.5], c: '#ffb03d' },
+      { t: 's', r: 0.13, p: [1.0, 0.42, -2.52], sc: [1, 1.6, 0.5], c: '#ffe27a' },
+    ],
+    stages: [
+      [
+        { t: 'xtree', x: 3.6, z: -2.6, y: 0, ry: 0.3 },
+        { t: 'cocoa', x: -1.2, z: -2.6, y: 0.9, ry: 0.4 },
+        { t: 'stocking', wall: 'back', u: -1.0, yc: 2.6 },
+        { t: 'pillow', x: -2.8, z: -2.2, y: 0.7, ry: 0.2 },
+        { t: 'candle', x: 0.0, z: -3.0, y: 1.74, ry: 0 },
+      ],
+      [
+        { t: 'snowman', x: -0.6, z: 1.3, y: 0, ry: 0.3 },
+        { t: 'stocking', wall: 'back', u: -1.8, yc: 2.6 },
+        { t: 'clock', wall: 'back', u: 1.0, yc: 3.25 },
+        { t: 'gift', x: 3.0, z: -1.1, y: 0, ry: 0.4 },
+        { t: 'kitty', x: 0.9, z: 0.5, y: 0, ry: 0.5 },
+        { t: 'books', x: 2.0, z: -3.0, y: 1.74, ry: -0.1 },
+      ],
+      [
+        { t: 'ginger', x: 1.0, z: -2.95, y: 1.74, ry: 0 },
+        { t: 'teddy', x: -2.4, z: 1.2, y: 0, ry: 0.5 },
+        { t: 'yarn', x: -1.6, z: 0.4, y: 0, ry: 0 },
+        { t: 'moon', wall: 'left', u: 1.4, yc: 3.6 },
+        { t: 'star', wall: 'left', u: 2.9, yc: 4.4 },
+        { t: 'garland', wall: 'back', u: 1.0, yc: 4.7 },
+        { t: 'ukulele', wall: 'left', u: -0.1, yc: 2.9 },
+      ],
+    ],
+  },
+];
+
+const ORDER = ['bedroom', 'cafe', 'living', 'study', 'bath', 'kids', 'garden', 'bakery', 'flower', 'cabin'];
+const ALL = [...BASE_ROOMS, ...MORE_ROOMS];
+export const ROOMS = ORDER.map((id) => ALL.find((r) => r.id === id));
+
 // -------------------------------------------------------------------------
 export function slotPose(slot, type) {
   const h = type.half;
@@ -299,12 +636,12 @@ export function buildRoom(spec, phys) {
   parts.push({ t: 'b', w: 10.0, h: 0.8, d: 8.0, rad: 0.22, p: [0.2, -0.4, 0.0], c: slabC });
   parts.push({ t: 'b', w: 10.3, h: 0.16, d: 8.3, rad: 0.08, p: [0.2, -0.78, 0.0], c: '#6f5a86' });
   parts.push({ t: 'b', w: 9.9, h: ROOM.h, d: 0.4, rad: 0.12, p: [-0.05, ROOM.h / 2, ROOM.z0 - 0.2], c: spec.trim });
-  parts.push({ t: 'b', w: 0.4, h: ROOM.h, d: 7.4, rad: 0.12, p: [ROOM.x0 - 0.2, ROOM.h / 2, 0.0], c: spec.trim });
+  parts.push({ t: 'b', w: 0.4, h: ROOM.h - 0.02, d: 7.2, rad: 0.12, p: [ROOM.x0 - 0.2, ROOM.h / 2 - 0.01, 0.1], c: spec.trim });
   parts.push({ t: 'b', w: 10.0, h: 0.3, d: 0.6, rad: 0.1, p: [-0.05, ROOM.h + 0.05, ROOM.z0 - 0.2], c: spec.base });
-  parts.push({ t: 'b', w: 0.6, h: 0.3, d: 7.6, rad: 0.1, p: [ROOM.x0 - 0.2, ROOM.h + 0.05, 0.0], c: spec.base });
+  parts.push({ t: 'b', w: 0.6, h: 0.28, d: 7.6, rad: 0.1, p: [ROOM.x0 - 0.2, ROOM.h + 0.04, 0.12], c: spec.base });
   // baseboards
   parts.push({ t: 'b', w: 9.0, h: 0.28, d: 0.14, rad: 0.04, p: [0, 0.14, ROOM.z0 + 0.07], c: spec.trim });
-  parts.push({ t: 'b', w: 0.14, h: 0.28, d: 7.0, rad: 0.04, p: [ROOM.x0 + 0.07, 0.14, 0], c: spec.trim });
+  parts.push({ t: 'b', w: 0.13, h: 0.26, d: 6.86, rad: 0.04, p: [ROOM.x0 + 0.065, 0.13, 0.07], c: spec.trim });
 
   // furniture
   for (const b of spec.blocks) {

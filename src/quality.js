@@ -1,9 +1,9 @@
 // Adaptive resolution governor: keeps frame time low so phones stay cool.
 // Only active (interactive) frames are sampled; idle frames are intentionally cheap.
 export class Quality {
-  constructor(isMobile) {
+  constructor(cap) {
     const dpr = window.devicePixelRatio || 1;
-    this.cap = isMobile ? Math.min(1.5, dpr) : Math.min(2, dpr);
+    this.cap = Math.min(cap, dpr);
     this.dpr = this.cap;
     this.ceiling = this.cap;
     this.ema = 16.7;
@@ -28,8 +28,8 @@ export class Quality {
       this.slow = Math.max(0, this.slow - 1);
       if (this.ema < this.target * 1.08) this.good++;
     }
-    if (this.slow > 36 && this.dpr > 0.7) {
-      this.dpr = Math.max(0.7, this.dpr - 0.2);
+    if (this.slow > 36 && this.dpr > 0.65) {
+      this.dpr = Math.max(0.65, this.dpr - 0.2);
       this.ceiling = Math.min(this.ceiling, this.dpr + 0.2); // don't bounce straight back up
       this.slow = 0;
       this.good = 0;
